@@ -1,4 +1,6 @@
+#include "http.h"
 #include "jsmn.h"
+#include "uart.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,7 +56,7 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
   return -1;
 }
 
-void jasmin_Parser() {
+void jasmin_Parser(char *JSON_STRING) {
   int i;
   int r;
   jsmn_parser p;
@@ -74,46 +76,62 @@ void jasmin_Parser() {
     return;
   }
 
+#ifndef print_json
   // printf("Number of tookens found==%d",r);
   /* Loop over all keys of the root object */
   for (i = 1; i < r; i++) {
     if (jsoneq(JSON_STRING, &t[i], "username") == 0) {
       /* We may use strndup() to fetch string value */
-      printf("\n-Username: %.*s\n", t[i + 1].end - t[i + 1].start,
-             JSON_STRING + t[i + 1].start);
+      // printf("\n-Username: %.*s\n", t[i + 1].end - t[i + 1].start,
+      //        JSON_STRING + t[i + 1].start);
       i++;
     } else if (jsoneq(JSON_STRING, &t[i], "password") == 0) {
       /* We may additionally check if the value is either "true" or "false" */
-      printf("\n-Password: %.*s\n", t[i + 1].end - t[i + 1].start,
-             JSON_STRING + t[i + 1].start);
+      // printf("\n-Password: %.*s\n", t[i + 1].end - t[i + 1].start,
+      //        JSON_STRING + t[i + 1].start);
       i++;
     } else if (jsoneq(JSON_STRING, &t[i], "temperature") == 0) {
       /* We may want to do strtol() here to get numeric value */
-      printf("\n-Temperature: %.*s\n", t[i + 1].end - t[i + 1].start,
-             JSON_STRING + t[i + 1].start);
+
+      // printf("\n Current Temperature is :%.*s\n", t[i + 1].end - t[i + 1].start,
+      //        JSON_STRING + t[i + 1].start);
+
+                 printf("\033[1;36m");  // ANSI escape sequence to set text color to cyan (bright)
+    printf(" ╔════════════════════════╗\n");
+    printf(" ║                        ║\n");
+    printf(" ║  Current Temperature   ║\n");
+    printf(" ║                        ║\n");
+    printf(" ║           %.*s           ║\n", t[i + 1].end - t[i + 1].start,JSON_STRING + t[i + 1].start);
+    printf(" ║                        ║\n");
+    printf(" ╚════════════════════════╝\n");
+    printf("\033[0m");  // Reset text color to default
+
       i++;
+
     } else if (jsoneq(JSON_STRING, &t[i], "groups") == 0) {
-      int j;
-      printf("- Groups:\n");
-      if (t[i + 1].type != JSMN_ARRAY) {
-        continue; /* We expect groups to be an array of strings */
-      }
-      for (j = 0; j < t[i + 1].size; j++) {
-        jsmntok_t *g = &t[i + j + 2];
-        printf("  * %.*s\n", g->end - g->start, JSON_STRING + g->start);
-      }
-      i += t[i + 1].size + 1;
+      // int j;
+      // printf("- Groups:\n");
+      // if (t[i + 1].type != JSMN_ARRAY) {
+      //   continue; /* We expect groups to be an array of strings */
+      // }
+      // for (j = 0; j < t[i + 1].size; j++) {
+      //   jsmntok_t *g = &t[i + j + 2];
+      //   printf("  * %.*s\n", g->end - g->start, JSON_STRING + g->start);
+      // }
+      // i += t[i + 1].size + 1;
     } else {
       printf("Unexpected key: %.*s\n", t[i].end - t[i].start,
              JSON_STRING + t[i].start);
     }
   }
+#endif
 }
 
 int main() {
   struct User users[MAX_USERS];
   int num_users = 0;
 
+  int operation;
   strcpy(users[num_users].username, "usr");
   strcpy(users[num_users].password, "111");
   num_users++;
@@ -157,46 +175,70 @@ int main() {
             (strcmp(users[i].password, user_password1) == 0)) {
           printf("Login successful!\n");
           login_successful = true;
-          displayOptionsAfterLogin();
-          int operation;
-          if (scanf("%d", &operation) != 1) {
-            printf("Invalid input. Please enter a number between 1 and 4.\n");
-            continue;
-          }
+          do {
+            displayOptionsAfterLogin();
 
-          clearInputBuffer();
-
-          switch (choice) {
-          case 1:
-            printf("\nSet the Temperature Value:");
-            int temp;
-            if (scanf("%d", &temp) != 1) {
-              printf("Invalid input. Please enter a proper Temp.\n");
+            if (scanf("%d", &operation) != 1) {
+              printf("Invalid input. Please enter a number between 1 and 4.\n");
               continue;
             }
-            snprintf(
-                JSON_STRING, sizeof(JSON_STRING),
-                "{\"username\":\"%s\",\"password\":\"%s\",\"temperature\":%d}",
-                user_name1, user_password1, temp);
-            printf("JSON string: %s\n", JSON_STRING);
-            getchar();
-            jasmin_Parser();
-            break;
-          case 2:
-            printf("\nGetting the Temperature Value...");
-            break;
-          case 3:
-            printf("\nShedule the Time and Temperature:");
-            sprintf(
-                JSON_STRING,
-                "{\"username\":\"%s\",\"password\":\"%s\",\"temperature\":%d}",
-                user_name1, user_password1, temp);
-            // printf("JSON string: %s\n", jsonString);
-            getchar();
-            break;
-          case 4:
-            break;
-          }
+
+            clearInputBuffer();
+
+            switch (operation) {
+            case 1:
+              printf("\nSet the Temperature Value:");
+              int temp;
+              if (scanf("%d", &temp) != 1) {
+                printf("Invalid input. Please enter a proper Temp.\n");
+                continue;
+              }
+              snprintf(JSON_STRING, sizeof(JSON_STRING),
+                       "{\"username\":\"%s\",\"password\":\"%s\","
+                       "\"temperature\":%d}",
+                       user_name1, user_password1, temp);
+              // printf("JSON string: %s\n", JSON_STRING);
+              getchar();
+              // jasmin_Parser(JSON_STRING);
+              http_call(JSON_STRING);
+              break;
+            case 2:
+              printf("\nGetting the Temperature Value...\n");
+              sleep(2);
+              printf("\nTemperature data requested successfully.\n");
+              sleep(2);
+              // Wait for response and parse temperature data
+              char uart_response[512];
+              int uart_fd = open("file.txt", O_RDONLY);
+              int bytes_received =
+                  uart_receive(uart_fd, uart_response, sizeof(uart_response));
+              if (bytes_received < 0) {
+                printf("Error receiving response from UART.\n");
+                // Handle error
+              } else {
+                // Parse the response JSON to extract temperature data
+                // printf("data read==%s", uart_response);
+
+                jasmin_Parser(uart_response);
+                printf("\nPress Enter key to go back.\n");
+                getchar();
+                system("clear");
+              }
+              break;
+            case 3:
+              printf("\nShedule the Time and Temperature:");
+              sprintf(JSON_STRING,
+                      "{\"username\":\"%s\",\"password\":\"%s\","
+                      "\"temperature\":%d}",
+                      user_name1, user_password1, temp);
+              // printf("JSON string: %s\n", jsonString);
+              getchar();
+              break;
+            case 4:
+              printf("\nLogging out...\n");
+              break;
+            }
+          } while (operation != 4);
 
           break;
         }
@@ -229,7 +271,8 @@ int main() {
       break;
 
     case 3:
-      printf("Goodbye!\n");
+      printf("Powering off...\n");
+      sleep(2);
       return 0;
 
     default:

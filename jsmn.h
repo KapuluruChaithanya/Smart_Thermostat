@@ -156,7 +156,7 @@ static int jsmn_parse_primitive(jsmn_parser *parser, const char *js,
     case '}':
       goto found;
     default:
-                   /* to quiet a warning from gcc*/
+      /* to quiet a warning from gcc*/
       break;
     }
     if (js[parser->pos] < 32 || js[parser->pos] >= 127) {
@@ -197,10 +197,10 @@ static int jsmn_parse_string(jsmn_parser *parser, const char *js,
   jsmntok_t *token;
 
   int start = parser->pos;
-  
+
   /* Skip starting quote */
   parser->pos++;
-  
+
   for (; parser->pos < len && js[parser->pos] != '\0'; parser->pos++) {
     char c = js[parser->pos];
 
@@ -273,6 +273,8 @@ JSMN_API int jsmn_parse(jsmn_parser *parser, const char *js, const size_t len,
   jsmntok_t *token;
   int count = parser->toknext;
 
+  printf("\n Parsing Json data...\n");
+
   for (; parser->pos < len && js[parser->pos] != '\0'; parser->pos++) {
     char c;
     jsmntype_t type;
@@ -283,7 +285,7 @@ JSMN_API int jsmn_parse(jsmn_parser *parser, const char *js, const size_t len,
     case '[':
       count++;
       if (tokens == NULL) {
-        printf("breaked at pos %d",parser->pos);
+        printf("breaked at pos %d", parser->pos);
         break;
       }
       token = jsmn_alloc_token(parser, tokens, num_tokens);
