@@ -5,7 +5,7 @@ int uart_init() {
     // system("socat -d -d pty,raw,echo=0 pty,raw,echo=0");
 
     // Open the UART device and return the file descriptor
-    int uart_fd = open("file.txt", O_WRONLY | O_TRUNC);
+    int uart_fd = open("thermostat.txt", O_WRONLY | O_TRUNC);
     return uart_fd;
 }
 
@@ -23,6 +23,7 @@ bool uart_receive(int uart_fd, char *buffer, size_t size) {
         perror("Error reading from UART device");
         return false;
     }
+    
     return true;
 }
 

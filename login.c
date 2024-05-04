@@ -1,10 +1,13 @@
 #include "http.h"
 #include "jsmn.h"
 #include "uart.h"
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #define MAX_USERS 10
 #define MAX_USERNAME_LENGTH 20
@@ -16,6 +19,17 @@ char JSON_STRING[MAX_JSON_LENGTH];
 struct User {
   char username[MAX_USERNAME_LENGTH];
   char password[MAX_PASSWORD_LENGTH];
+};
+
+#define DEVICE_NAME "file.txt"
+
+char user_name1[MAX_USERNAME_LENGTH];
+char user_password1[MAX_PASSWORD_LENGTH];
+
+struct Schedule {
+  int temperature;
+  int hour;
+  int minute;
 };
 
 void clearInputBuffer() {
@@ -46,6 +60,75 @@ void displayOptionsAfterLogin() {
   printf("\nEnter your choice: ");
 }
 
+void scheduleTemperature(struct Schedule *schedule) {
+  printf("Enter time (HH:MM) to schedule: ");
+  scanf("%d:%d", &schedule->hour, &schedule->minute);
+
+  printf("Enter temperature  to schedule: ");
+  scanf("%d", &schedule->temperature);
+}
+
+int calculateDelay(struct Schedule *schedule) {
+  time_t now;
+  struct tm *current_time;
+  time(&now);
+  current_time = localtime(&now);
+
+  int current_hour = current_time->tm_hour;
+  int current_minute = current_time->tm_min;
+  int current_second = current_time->tm_sec;
+
+  int delay_seconds = ((schedule->hour - current_hour) * 3600) +
+                      ((schedule->minute - current_minute) * 60) -
+                      current_second;
+
+  if (delay_seconds < 0) {
+    delay_seconds += 24 * 3600;
+  }
+
+  return delay_seconds;
+}
+
+void createJSON(struct Schedule *schedule, char *json_string, int size) {
+  snprintf(json_string, sizeof(json_string),
+           "{\"username\":\"%s\",\"password\":\"%s\","
+           "\"temperature\":%d}",
+           user_name1, user_password1, schedule->temperature);
+  // snprintf(json_string, size, "{\"temperature\":%d}", schedule->temperature);
+}
+
+void writeToFile(const char *json_string) {
+  FILE *file = fopen(DEVICE_NAME, "w");
+  if (file != NULL) {
+    fprintf(file, "%s\n", json_string);
+    fclose(file);
+    // printf("JSON data written to %s\n", DEVICE_NAME);
+  } else {
+    printf("Error opening file for writing\n");
+  }
+}
+
+void *scheduleThread(void *arg) {
+  struct Schedule *schedule = (struct Schedule *)arg;
+
+  int delay_seconds = calculateDelay(schedule);
+
+  // printf("Waiting for scheduled time...\n");
+  sleep(delay_seconds);
+
+  char json_string[100];
+  // createJSON(schedule, json_string, sizeof(json_string));
+  snprintf(json_string, sizeof(json_string),
+           "{\"username\":\"%s\",\"password\":\"%s\","
+           "\"temperature\":%d}",
+           user_name1, user_password1, schedule->temperature);
+
+  // writeToFile(json_string);
+  http_call(json_string,false);
+
+  return NULL;
+}
+
 static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
   // printf("\ns==%s|strlen(s)==%d|tok->end - tok->start==%d\n",
   // s,(int)strlen(s),tok->end - tok->start);
@@ -60,7 +143,7 @@ void jasmin_Parser(char *JSON_STRING) {
   int i;
   int r;
   jsmn_parser p;
-  jsmntok_t t[128]; /* We expect no more than 128 tokens */
+  jsmntok_t t[500];
 
   jsmn_init(&p);
   r = jsmn_parse(&p, JSON_STRING, strlen(JSON_STRING), t,
@@ -93,18 +176,21 @@ void jasmin_Parser(char *JSON_STRING) {
     } else if (jsoneq(JSON_STRING, &t[i], "temperature") == 0) {
       /* We may want to do strtol() here to get numeric value */
 
-      // printf("\n Current Temperature is :%.*s\n", t[i + 1].end - t[i + 1].start,
+      // printf("\n Current Temperature is :%.*s\n", t[i + 1].end - t[i +
+      // 1].start,
       //        JSON_STRING + t[i + 1].start);
 
-                 printf("\033[1;36m");  // ANSI escape sequence to set text color to cyan (bright)
-    printf(" ╔════════════════════════╗\n");
-    printf(" ║                        ║\n");
-    printf(" ║  Current Temperature   ║\n");
-    printf(" ║                        ║\n");
-    printf(" ║           %.*s           ║\n", t[i + 1].end - t[i + 1].start,JSON_STRING + t[i + 1].start);
-    printf(" ║                        ║\n");
-    printf(" ╚════════════════════════╝\n");
-    printf("\033[0m");  // Reset text color to default
+      printf("\033[1;36m"); // ANSI escape sequence to set text color to cyan
+                            // (bright)
+      printf(" ╔════════════════════════╗\n");
+      printf(" ║                        ║\n");
+      printf(" ║  Current Temperature   ║\n");
+      printf(" ║                        ║\n");
+      printf(" ║           %.*s           ║\n", t[i + 1].end - t[i + 1].start,
+             JSON_STRING + t[i + 1].start);
+      printf(" ║                        ║\n");
+      printf(" ╚════════════════════════╝\n");
+      printf("\033[0m"); // Reset text color to default
 
       i++;
 
@@ -131,13 +217,13 @@ int main() {
   struct User users[MAX_USERS];
   int num_users = 0;
 
+  pthread_t tid;
+  struct Schedule schedule;
+
   int operation;
   strcpy(users[num_users].username, "usr");
   strcpy(users[num_users].password, "111");
   num_users++;
-
-  char user_name1[MAX_USERNAME_LENGTH];
-  char user_password1[MAX_PASSWORD_LENGTH];
 
   while (true) {
     system("clear");
@@ -199,8 +285,10 @@ int main() {
                        user_name1, user_password1, temp);
               // printf("JSON string: %s\n", JSON_STRING);
               getchar();
-              // jasmin_Parser(JSON_STRING);
-              http_call(JSON_STRING);
+              http_call(JSON_STRING,true);
+              printf("\nPress Enter key to go back.\n");
+              getchar();
+              system("clear");
               break;
             case 2:
               printf("\nGetting the Temperature Value...\n");
@@ -209,7 +297,7 @@ int main() {
               sleep(2);
               // Wait for response and parse temperature data
               char uart_response[512];
-              int uart_fd = open("file.txt", O_RDONLY);
+              int uart_fd = open("thermostat.txt", O_RDONLY);
               int bytes_received =
                   uart_receive(uart_fd, uart_response, sizeof(uart_response));
               if (bytes_received < 0) {
@@ -226,13 +314,30 @@ int main() {
               }
               break;
             case 3:
-              printf("\nShedule the Time and Temperature:");
-              sprintf(JSON_STRING,
-                      "{\"username\":\"%s\",\"password\":\"%s\","
-                      "\"temperature\":%d}",
-                      user_name1, user_password1, temp);
-              // printf("JSON string: %s\n", jsonString);
+
+              printf(
+                  "\n----------Shedule the Time and Temperature----------\n");
+
+              // Get user input and schedule temperature
+              scheduleTemperature(&schedule);
+
+              // Create thread for scheduling and waiting
+              if (pthread_create(&tid, NULL, scheduleThread,
+                                 (void *)&schedule) != 0) {
+                perror("Error creating thread");
+                return 1;
+              }
+
+              printf("\nTemperature sucessfully Sheduled :)\n");
+
+              // Continue running main program while waiting
+              // Add your main program logic here
+              // For example, handle user input and perform other action
+              /// Clear input buffer to remove newline character
+              clearInputBuffer();
+              printf("\nPress Enter key to go back.\n");
               getchar();
+              system("clear");
               break;
             case 4:
               printf("\nLogging out...\n");
@@ -271,6 +376,7 @@ int main() {
       break;
 
     case 3:
+      pthread_join(tid, NULL); // Wait for thread to finish
       printf("Powering off...\n");
       sleep(2);
       return 0;

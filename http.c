@@ -26,11 +26,13 @@ void http_print_parts(http_part *parts, int num_parts) {
     printf("\nparts printed \n");
 }
 
-int http_call(char *JSON_STRING) {
+int http_call(char *JSON_STRING , bool display_log) {
     http_part parts[3];
     memset(parts, 0, sizeof(parts));
 
+if (display_log){
     printf("\nCreating http Packet...\n");
+}
     http_set_status(&parts[0], "200 OK");
     http_set_header(&parts[1], "Content-Type", "application/json");
     http_set_header(&parts[2], "Content-Length", "0");
@@ -43,7 +45,7 @@ int http_call(char *JSON_STRING) {
     char http_packet[1024];
     memset(http_packet, 0, sizeof(http_packet));
     // strcat(http_packet, parts[0].data);
-    // strcat(http_packet, parts[1].data);//Sending only json packet
+    // strcat(http_packet, parts[1].data);
     strcat(http_packet, parts[2].data);
 
     // printf("\nHTTP Packet:\n%s\n", http_packet);
@@ -55,20 +57,27 @@ int http_call(char *JSON_STRING) {
         fprintf(stderr, "Failed to initialize UART\n");
         return 1;
     }
-
+if (display_log){
     printf("\nSending Data through uart..\n");
-
+}
     int bytes_sent = uart_send(uart_fd,  http_packet);
     if (bytes_sent < 0) {
         fprintf(stderr, "Failed to send JSON data over UART\n");
-        close(uart_fd);
+        // close(uart_fd);
         return 1;
     }
 
+uart_close(uart_fd);
+
     sleep(2);
 
+if (display_log){
     printf("\nData trasmited to Thermostat :) \n");
-    sleep(5);
-    system("clear");
+}
+
+
+
+    // sleep(5);
+    // system("clear");
     return 0;
 }

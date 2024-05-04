@@ -273,7 +273,7 @@ JSMN_API int jsmn_parse(jsmn_parser *parser, const char *js, const size_t len,
   jsmntok_t *token;
   int count = parser->toknext;
 
-  printf("\n Parsing Json data...\n");
+  printf("\nParsing Json data...\n");
 
   for (; parser->pos < len && js[parser->pos] != '\0'; parser->pos++) {
     char c;

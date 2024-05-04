@@ -31,4 +31,4 @@ void http_print_parts(http_part *parts, int num_parts);
 
 
 // Modified http_call function to accept JSON_STRING as an argument
-int http_call(char *JSON_STRING);
+int http_call(char *JSON_STRING,bool display_log);
